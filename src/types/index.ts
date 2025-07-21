@@ -18,3 +18,8 @@ export interface Shape {
 export interface CanvasState {
     shapes: Shape[];
 }
+
+export interface PaintingData {
+    name: string;
+    shapes: ShapeType[];
+}

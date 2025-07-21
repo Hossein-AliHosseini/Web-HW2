@@ -2,12 +2,13 @@ import React, { ChangeEvent } from 'react';
 import { ShapeType } from '../types';
 
 interface HeaderProps {
-    title?: string;
-    onImport: (importedShapes: ShapeType[]) => void;
+    paintingName: string;
+    setPaintingName: (name: string) => void;
+    onImport: (imported: any) => void;
     onExport: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title = "Drawing App", onImport, onExport }) => {
+const Header: React.FC<HeaderProps> = ({ paintingName, setPaintingName, onImport, onExport }) => {
     const handleImport = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -16,27 +17,37 @@ const Header: React.FC<HeaderProps> = ({ title = "Drawing App", onImport, onExpo
             try {
                 const result = reader.result;
                 if (typeof result === 'string') {
-                    const shapes = JSON.parse(result);
-                    if (Array.isArray(shapes)) {
-                        onImport(shapes);
-                    } else {
-                        alert("Invalid file format.");
-                    }
+                    const data = JSON.parse(result);
+                    onImport(data);
                 } else {
                     alert("Failed to read file.");
                 }
             } catch {
-                alert("Failed to import shapes.");
+                alert("Failed to import painting.");
             }
         };
         reader.readAsText(file);
-        // Reset input value to allow re-importing the same file
         e.target.value = '';
     };
 
     return (
         <header className="header">
-            <h1>{title}</h1>
+            <input
+                type="text"
+                value={paintingName}
+                onChange={e => setPaintingName(e.target.value)}
+                style={{
+                    fontSize: 24,
+                    fontWeight: 'bold',
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#fff',
+                    outline: 'none',
+                    marginRight: 16,
+                    maxWidth: 300
+                }}
+                aria-label="Painting name"
+            />
             <div className="header-buttons">
                 <input
                     id="import-file"
