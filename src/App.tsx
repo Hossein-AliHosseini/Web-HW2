@@ -4,11 +4,13 @@ import Sidebar from './components/Sidebar';
 import Canvas from './components/Canvas';
 import Counter from './components/Counter';
 import { ShapeType, PaintingData } from './types';
+import LoginPage from './components/LoginPage';
 
 const App: React.FC = () => {
     const [shapes, setShapes] = useState<ShapeType[]>([]);
     const [selectedShape, setSelectedShape] = useState<string | null>(null);
     const [paintingName, setPaintingName] = useState<string>('Untitled Painting');
+    const [username, setUsername] = useState<string | null>(localStorage.getItem('username') || null);
 
     const addShape = (shape: ShapeType) => {
         setShapes([...shapes, shape]);
@@ -18,56 +20,109 @@ const App: React.FC = () => {
         setShapes(shapes.filter(shape => shape.id !== id));
     };
 
-    const exportShapes = () => {
+    const saveDrawing = async () => {
+        if (!username) {
+            alert('Please login to save.');
+            return;
+        }
         const paintingData: PaintingData = {
             name: paintingName,
             shapes,
         };
-        const json = JSON.stringify(paintingData, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${paintingName || 'drawing'}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        try {
+            const response = await fetch(`http://localhost:8080/api/drawing?username=${username}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(paintingData),
+            });
+            if (response.ok) {
+                alert('Drawing saved!');
+            } else {
+                alert('Failed to save drawing.');
+            }
+        } catch (error) {
+            alert('Error saving drawing: ' + error);
+        }
     };
 
-    const importShapes = (imported: PaintingData | ShapeType[]) => {
-        if (Array.isArray(imported)) {
-            setShapes(imported);
-            setPaintingName('Untitled Painting');
-        } else if (imported && typeof imported === 'object' && Array.isArray(imported.shapes)) {
-            setShapes(imported.shapes);
-            setPaintingName(imported.name || 'Untitled Painting');
-        } else {
-            alert('Invalid file format.');
+    const fetchDrawing = async (username: string) => {
+        try {
+            const response = await fetch(`http://localhost:8080/api/drawing?username=${username}`);
+            if (response.ok) {
+                const text = await response.text();
+                if (text) {
+                    try {
+                        const imported: PaintingData = JSON.parse(text);
+                        setShapes(imported.shapes);
+                        setPaintingName(imported.name || 'Untitled Painting');
+                    } catch (e) {
+                        console.error("Error parsing JSON:", e);
+                        alert("Error parsing drawing data.");
+                    }
+                } else {
+                    setShapes([]);
+                    setPaintingName('Untitled Painting');
+                }
+            } else {
+                alert('Failed to load drawing.');
+            }
+        } catch (error) {
+            alert('Error loading drawing: ' + error);
         }
+    };
+
+    const handleLogin = (user: string) => {
+        setUsername(user);
+        // No initial fetch here
+    };
+
+    const handleLogout = () => {
+        setUsername(null);
+        setShapes([]);
+        setPaintingName('Untitled Painting');
+    };
+
+    const handleImport = () => {
+        if (!username) {
+            alert('Please login to import.');
+            return;
+        }
+        fetchDrawing(username);
     };
 
     return (
         <div className="app">
-            <Header 
-                paintingName={paintingName}
-                setPaintingName={setPaintingName}
-                onExport={exportShapes} 
-                onImport={importShapes} 
-            />
-            <div className="main-container">
-                <Sidebar 
-                    selectedShape={selectedShape} 
-                    setSelectedShape={setSelectedShape} 
-                    addShape={addShape} 
-                />
-                <Canvas 
-                    shapes={shapes} 
-                    deleteShape={deleteShape} 
-                    selectedShape={selectedShape}
-                    addShape={addShape}
-                    setSelectedShape={setSelectedShape}
-                />
-            </div>
-            <Counter shapes={shapes} />
+            {username ? (
+                <>
+                    <Header
+                        paintingName={paintingName}
+                        setPaintingName={setPaintingName}
+                        onExport={saveDrawing}
+                        onImport={handleImport}
+                        username={username}
+                        onLogout={handleLogout}
+                    />
+                    <div className="main-container">
+                        <Sidebar
+                            selectedShape={selectedShape}
+                            setSelectedShape={setSelectedShape}
+                            addShape={addShape}
+                        />
+                        <Canvas
+                            shapes={shapes}
+                            deleteShape={deleteShape}
+                            selectedShape={selectedShape}
+                            addShape={addShape}
+                            setSelectedShape={setSelectedShape}
+                        />
+                    </div>
+                    <Counter shapes={shapes} />
+                </>
+            ) : (
+                <LoginPage onLogin={handleLogin} />
+            )}
         </div>
     );
 };
